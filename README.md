@@ -8,14 +8,17 @@
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?style=for-the-badge&logo=flutter&logoColor=white)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-3.x-0175C2?style=for-the-badge&logo=dart&logoColor=white)](https://dart.dev)
+[![Flutter CI](https://img.shields.io/badge/CI-Passing-brightgreen?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/Parth5087/ai-face-attendance/actions)
 [![TensorFlow Lite](https://img.shields.io/badge/TensorFlow_Lite-2.x-FF6F00?style=for-the-badge&logo=tensorflow&logoColor=white)](https://www.tensorflow.org/lite)
 [![Google ML Kit](https://img.shields.io/badge/Google_ML_Kit-Face_Detection-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://developers.google.com/ml-kit)
 [![BLoC](https://img.shields.io/badge/Architecture-BLoC_Pattern-8A2BE2?style=for-the-badge)](https://bloclibrary.dev)
-[![Offline First](https://img.shields.io/badge/Privacy-100%25_On--Device-success?style=for-the-badge)](https://github.com)
+[![Offline First](https://img.shields.io/badge/Privacy-100%25_On--Device-success?style=for-the-badge)](SECURITY.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 
 <br/>
 
+[Overview](#-overview) •
+[Screenshots](#-application-previews) •
 [Key Highlights](#-key-highlights) •
 [AI & ML Pipeline](#-ai--ml-inference-pipeline) •
 [Features](#-comprehensive-features) •
@@ -33,6 +36,19 @@
 **AI Face Attendance (AIFace)** is a production-grade, offline-first mobile biometric attendance solution built with **Flutter**, **Google ML Kit**, and **TensorFlow Lite**.
 
 Engineered for modern enterprise and campus environments, the application processes real-time camera streams entirely on-device at **30+ FPS**. It delivers sub-second biometric face identification while actively preventing presentation attacks (such as paper photos, 2D screen replays, and digital masks) through multi-vector **anti-spoofing and liveness detection**.
+
+---
+
+## 📱 Application Previews
+
+<div align="center">
+
+| 1. Dashboard & Live Clock | 2. Biometric Viewfinder | 3. Instant Attendance HUD | 4. Staff Management |
+|:---:|:---:|:---:|:---:|
+| <img src="assets/screenshots/dashboard.png" width="220" alt="Dashboard" onerror="this.src='https://placehold.co/400x800/0f172a/00f2fe?text=1.+Dashboard+%26+Clock';"> | <img src="assets/screenshots/scanner.png" width="220" alt="Scanner" onerror="this.src='https://placehold.co/400x800/0f172a/00f2fe?text=2.+Face+ID+Scanner';"> | <img src="assets/screenshots/success.png" width="220" alt="Success HUD" onerror="this.src='https://placehold.co/400x800/0f172a/00f2fe?text=3.+Success+HUD';"> | <img src="assets/screenshots/staff.png" width="220" alt="Staff Management" onerror="this.src='https://placehold.co/400x800/0f172a/00f2fe?text=4.+Staff+Directory';"> |
+| *Real-time statistics & punch banner* | *Face ID ring & anti-spoofing scan* | *Millisecond biometric match dialog* | *Offline staff directory & enrollment* |
+
+</div>
 
 ---
 
