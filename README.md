@@ -43,10 +43,10 @@ Engineered for modern enterprise and campus environments, the application proces
 
 <div align="center">
 
-| 1. Dashboard & Live Clock | 2. Biometric Viewfinder | 3. Instant Attendance HUD | 4. Staff Management |
-|:---:|:---:|:---:|:---:|
-| <img src="assets/screenshots/dashboard.png" width="220" alt="Dashboard" onerror="this.src='https://placehold.co/400x800/0f172a/00f2fe?text=1.+Dashboard+%26+Clock';"> | <img src="assets/screenshots/scanner.png" width="220" alt="Scanner" onerror="this.src='https://placehold.co/400x800/0f172a/00f2fe?text=2.+Face+ID+Scanner';"> | <img src="assets/screenshots/success.png" width="220" alt="Success HUD" onerror="this.src='https://placehold.co/400x800/0f172a/00f2fe?text=3.+Success+HUD';"> | <img src="assets/screenshots/staff.png" width="220" alt="Staff Management" onerror="this.src='https://placehold.co/400x800/0f172a/00f2fe?text=4.+Staff+Directory';"> |
-| *Real-time statistics & punch banner* | *Face ID ring & anti-spoofing scan* | *Millisecond biometric match dialog* | *Offline staff directory & enrollment* |
+| 1. Dashboard | 2. Biometric Scanner | 3. Attendance Verified | 4. Liveness Enrollment | 5. Staff Directory |
+|:---:|:---:|:---:|:---:|:---:|
+| <img src="assets/screenshots/dashboard.png" width="180" alt="Dashboard Screen"> | <img src="assets/screenshots/scanner.png" width="180" alt="Face Scanner Viewfinder"> | <img src="assets/screenshots/success.png" width="180" alt="Attendance Match Dialog"> | <img src="assets/screenshots/enroll.png" width="180" alt="Face Enrollment"> | <img src="assets/screenshots/staff.png" width="180" alt="Staff Directory"> |
+| *Real-time statistics & clock* | *Neon Face ID scanning ring* | *Instant biometric match HUD* | *Liveness eye-blink enrollment* | *Offline staff management* |
 
 </div>
 
