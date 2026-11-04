@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 class UserModel {
   final String id;
@@ -11,6 +12,9 @@ class UserModel {
   final DateTime registeredAt;
   final String? avatarBase64;
 
+  Uint8List? _cachedAvatarBytes;
+  bool _avatarBytesDecoded = false;
+
   UserModel({
     required this.id,
     required this.name,
@@ -22,6 +26,21 @@ class UserModel {
     required this.registeredAt,
     this.avatarBase64,
   });
+
+  /// Memoized getter that decodes base64 only once and caches it in memory.
+  Uint8List? get avatarBytes {
+    if (!_avatarBytesDecoded) {
+      _avatarBytesDecoded = true;
+      if (avatarBase64 != null && avatarBase64!.isNotEmpty) {
+        try {
+          _cachedAvatarBytes = base64Decode(avatarBase64!);
+        } catch (_) {
+          _cachedAvatarBytes = null;
+        }
+      }
+    }
+    return _cachedAvatarBytes;
+  }
 
   Map<String, dynamic> toMap() {
     return {

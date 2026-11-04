@@ -6,8 +6,8 @@ class StorageService {
   static const String _usersKey = 'ai_face_registered_users_v1';
   static const String _attendanceKey = 'ai_face_attendance_records_v1';
   // Legacy migration keys
-  static const String _legacyUsersKey = 'getzy_registered_users_v1';
-  static const String _legacyAttendanceKey = 'getzy_attendance_records_v1';
+  static const String _legacyUsersKey = 'legacy_registered_users_v1';
+  static const String _legacyAttendanceKey = 'legacy_attendance_records_v1';
 
   late SharedPreferences _prefs;
 

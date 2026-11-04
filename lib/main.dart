@@ -34,13 +34,7 @@ void main() async {
     ),
   );
 
-  // 3. Lock portrait orientation
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
-
-  // 4. Initialize Core Services Architecture
+  // 3. Initialize Core Services Architecture Singleton
   final storageService = StorageService();
   final mlService = MLService();
   final faceDetectorService = FaceDetectorService();
@@ -53,13 +47,12 @@ void main() async {
     antiSpoofingService: antiSpoofingService,
   );
 
-  // Note: Heavy models are now loaded asynchronously inside SplashScreen via SplashBloc!
-  // App opens instantly in ~0.1s without cold-start freezing.
-
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider.value(value: attendanceService),
+        ChangeNotifierProvider<AttendanceService>.value(
+          value: AttendanceService.instance,
+        ),
       ],
       child: MultiBlocProvider(
         providers: [
@@ -81,8 +74,20 @@ void main() async {
   );
 }
 
-class AIFaceAttendanceApp extends StatelessWidget {
+class AIFaceAttendanceApp extends StatefulWidget {
   const AIFaceAttendanceApp({super.key});
+
+  @override
+  State<AIFaceAttendanceApp> createState() => _AIFaceAttendanceAppState();
+}
+
+class _AIFaceAttendanceAppState extends State<AIFaceAttendanceApp> {
+  @override
+  void initState() {
+    super.initState();
+    // Warm up biometrics asynchronously with idempotency guard
+    AttendanceService.instance.initialize().catchError((e) => debugPrint('$e'));
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -50,6 +49,14 @@ class _AttendanceSuccessDialogState extends State<AttendanceSuccessDialog>
     super.dispose();
   }
 
+  AttendanceService _resolveAttendanceService(BuildContext context) {
+    try {
+      return context.read<AttendanceService>();
+    } catch (_) {
+      return AttendanceService.instance;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final record = widget.record;
@@ -64,20 +71,15 @@ class _AttendanceSuccessDialogState extends State<AttendanceSuccessDialog>
     final Color glowColor = accentColor.withValues(alpha: 0.35);
 
     // Look up avatar from registered staff
-    final attendanceService = context.read<AttendanceService>();
+    final attendanceService = _resolveAttendanceService(context);
     final user = attendanceService.users
         .where((u) => u.id == record.employeeId)
         .firstOrNull;
-    final avatarBase64 = user?.avatarBase64;
 
-    Uint8List? avatarBytes;
-    try {
-      if (avatarBase64 != null && avatarBase64.isNotEmpty) {
-        avatarBytes = base64Decode(avatarBase64);
-      }
-    } catch (_) {
-      avatarBytes = null;
-    }
+    // Display the live punch snapshot (record.punchImageBytes ?? avatarBytes)
+    final Uint8List? avatarBytes = user?.avatarBytes;
+    final Uint8List? displayBytes = record.punchImageBytes ?? avatarBytes;
+    final bool isLivePunch = record.punchImageBytes != null;
 
     final initialLetter = record.employeeName.isNotEmpty
         ? record.employeeName.substring(0, 1).toUpperCase()
@@ -125,8 +127,8 @@ class _AttendanceSuccessDialogState extends State<AttendanceSuccessDialog>
                         children: [
                           // Countdown Track
                           SizedBox(
-                            width: 96,
-                            height: 96,
+                            width: 100,
+                            height: 100,
                             child: CircularProgressIndicator(
                               value: 1.0 - _countdownController.value,
                               strokeWidth: 3.5,
@@ -135,13 +137,14 @@ class _AttendanceSuccessDialogState extends State<AttendanceSuccessDialog>
                             ),
                           ),
 
-                          // Avatar / Monogram with checkmark badge
+                          // Avatar / Monogram with checkmark badge (Standard nested container fix)
                           Stack(
+                            clipBehavior: Clip.none,
                             alignment: Alignment.bottomRight,
                             children: [
                               Container(
-                                width: 82,
-                                height: 82,
+                                width: 84,
+                                height: 84,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   color: const Color(0xFF1E293B),
@@ -151,46 +154,52 @@ class _AttendanceSuccessDialogState extends State<AttendanceSuccessDialog>
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: accentColor.withValues(alpha: 0.3),
+                                      color: accentColor.withValues(alpha: 0.35),
                                       blurRadius: 12,
                                     ),
                                   ],
                                 ),
                                 padding: const EdgeInsets.all(2.5),
                                 child: ClipOval(
-                                  child: avatarBytes != null
+                                  child: displayBytes != null
                                       ? Image.memory(
-                                          avatarBytes,
+                                          displayBytes,
                                           fit: BoxFit.cover,
+                                          gaplessPlayback: true,
+                                          key: ValueKey('dialog_avatar_${record.id}'),
                                           errorBuilder: (ctx, err, stack) =>
                                               _buildMonogram(initialLetter, accentColor),
                                         )
                                       : _buildMonogram(initialLetter, accentColor),
                                 ),
                               ),
-                              Container(
-                                width: 26,
-                                height: 26,
-                                decoration: BoxDecoration(
-                                  color: accentColor,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: const Color(0xFF131D31),
-                                    width: 2,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: accentColor.withValues(alpha: 0.5),
-                                      blurRadius: 6,
+                              Positioned(
+                                bottom: -2,
+                                right: -2,
+                                child: Container(
+                                  width: 28,
+                                  height: 28,
+                                  decoration: BoxDecoration(
+                                    color: accentColor,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: const Color(0xFF131D31),
+                                      width: 2,
                                     ),
-                                  ],
-                                ),
-                                child: Icon(
-                                  widget.isAlreadyCheckedIn
-                                      ? Icons.done_all_rounded
-                                      : Icons.check,
-                                  color: Colors.white,
-                                  size: 15,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: accentColor.withValues(alpha: 0.5),
+                                        blurRadius: 6,
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    widget.isAlreadyCheckedIn
+                                        ? Icons.done_all_rounded
+                                        : (isLivePunch ? Icons.camera_alt_rounded : Icons.check),
+                                    color: Colors.white,
+                                    size: 15,
+                                  ),
                                 ),
                               ),
                             ],

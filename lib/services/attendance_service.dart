@@ -38,6 +38,9 @@ class PunchResult {
 }
 
 class AttendanceService extends ChangeNotifier {
+  static AttendanceService? _instance;
+  static AttendanceService get instance => _instance ??= AttendanceService();
+
   final StorageService storageService;
   final MLService mlService;
   final FaceDetectorService faceDetectorService;
@@ -52,11 +55,16 @@ class AttendanceService extends ChangeNotifier {
   bool _isReady = false;
 
   AttendanceService({
-    required this.storageService,
-    required this.mlService,
-    required this.faceDetectorService,
-    required this.antiSpoofingService,
-  });
+    StorageService? storageService,
+    MLService? mlService,
+    FaceDetectorService? faceDetectorService,
+    AntiSpoofingService? antiSpoofingService,
+  })  : storageService = storageService ?? StorageService(),
+        mlService = mlService ?? MLService(),
+        faceDetectorService = faceDetectorService ?? FaceDetectorService(),
+        antiSpoofingService = antiSpoofingService ?? AntiSpoofingService() {
+    _instance = this;
+  }
 
   bool get isReady => _isReady;
   List<UserModel> get users => List.unmodifiable(_users);
@@ -91,6 +99,12 @@ class AttendanceService extends ChangeNotifier {
   }
 
   Future<void> initialize({void Function(String message, double progress)? onProgress}) async {
+    // Idempotency guard: prevent duplicate initialization
+    if (_isReady) {
+      onProgress?.call('System Ready', 1.0);
+      return;
+    }
+
     onProgress?.call('Initializing Secure Storage...', 0.2);
     await storageService.init();
 
@@ -267,6 +281,11 @@ class AttendanceService extends ChangeNotifier {
     // 3. New Fresh Check-in for today!
     _recentPunchCooldown[user.id] = now;
 
+    // Generate an optimized lightweight thumbnail of the live cropped face (150x150 JPEG, ~10-12 KB)
+    final thumb = img.copyResize(faceImage, width: 150, height: 150);
+    final thumbJpg = img.encodeJpg(thumb, quality: 75);
+    final punchImageBase64 = base64Encode(thumbJpg);
+
     final record = AttendanceRecord(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       employeeId: user.id,
@@ -277,6 +296,7 @@ class AttendanceService extends ChangeNotifier {
       checkType: checkType,
       confidenceScore: result.similarity,
       status: _determineStatus(now),
+      punchImage: punchImageBase64,
     );
 
     await storageService.saveAttendanceRecord(record);

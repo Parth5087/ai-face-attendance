@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 class AttendanceRecord {
   final String id;
@@ -10,6 +11,10 @@ class AttendanceRecord {
   final String checkType; // 'IN' or 'OUT'
   final double confidenceScore; // 0.0 to 1.0 (Similarity %)
   final String status; // 'VERIFIED', 'ON TIME', 'LATE'
+  final String? punchImage; // Base64 JPEG string of the live face cropped during punch
+
+  Uint8List? _cachedPunchImageBytes;
+  bool _punchImageBytesDecoded = false;
 
   AttendanceRecord({
     required this.id,
@@ -21,7 +26,23 @@ class AttendanceRecord {
     required this.checkType,
     required this.confidenceScore,
     this.status = 'VERIFIED',
+    this.punchImage,
   });
+
+  /// Memoized getter that decodes base64 only once and caches it in memory.
+  Uint8List? get punchImageBytes {
+    if (!_punchImageBytesDecoded) {
+      _punchImageBytesDecoded = true;
+      if (punchImage != null && punchImage!.isNotEmpty) {
+        try {
+          _cachedPunchImageBytes = base64Decode(punchImage!);
+        } catch (_) {
+          _cachedPunchImageBytes = null;
+        }
+      }
+    }
+    return _cachedPunchImageBytes;
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -34,6 +55,7 @@ class AttendanceRecord {
       'checkType': checkType,
       'confidenceScore': confidenceScore,
       'status': status,
+      'punchImage': punchImage,
     };
   }
 
@@ -48,6 +70,7 @@ class AttendanceRecord {
       checkType: map['checkType'] as String,
       confidenceScore: (map['confidenceScore'] as num).toDouble(),
       status: map['status'] as String? ?? 'VERIFIED',
+      punchImage: map['punchImage'] as String?,
     );
   }
 

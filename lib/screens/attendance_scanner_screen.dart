@@ -5,8 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image/image.dart' as img;
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../core/app_colors.dart';
+import '../core/responsive.dart';
 import '../models/attendance_record.dart';
 import '../services/attendance_service.dart';
 import '../utils/image_converter.dart';
@@ -46,6 +48,14 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen>
 
   AttendanceRecord? _lastPunchResult;
   bool _isShowingDialog = false;
+
+  AttendanceService get _attendanceService {
+    try {
+      return context.read<AttendanceService>();
+    } catch (_) {
+      return AttendanceService.instance;
+    }
+  }
 
   @override
   void initState() {
@@ -120,7 +130,7 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen>
     }
     if (_cameraController!.value.isStreamingImages) return;
 
-    final attendanceService = context.read<AttendanceService>();
+    final attendanceService = _attendanceService;
     final faceDetector = attendanceService.faceDetectorService;
 
     try {
@@ -254,7 +264,7 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen>
     if (_isVerifying || _isShowingDialog || _lastPunchResult != null) return;
     _isVerifying = true;
 
-    final attendanceService = context.read<AttendanceService>();
+    final attendanceService = _attendanceService;
 
     try {
       img.Image? cropped;
@@ -365,7 +375,7 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen>
           );
         } else if (streamImage != null && Platform.isIOS) {
           // Stream match was below threshold on iOS.
-          // Fall back to high-precision photo detection (the exact pipeline that achieved 100% on Android)!
+          // Fall back to high-precision photo detection
           debugPrint(
             '[SCANNER_DEBUG] 🔄 iOS stream match below threshold (${((punchResult.confidenceScore) * 100).toStringAsFixed(1)}%). '
             'Confirming with high-precision photo capture...',
@@ -403,7 +413,7 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen>
     }
   }
 
-  /// High-precision photo verification fallback (Used directly on Android & as fallback on iOS)
+  /// High-precision photo verification fallback
   Future<void> _capturePhotoAndVerify(
     Face face,
     AttendanceService attendanceService,
@@ -597,203 +607,812 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen>
     super.dispose();
   }
 
+  /// 📱 Tablet Kiosk Instant Punch Card
+  /// Displays the freshly captured live punch photo avatar next to employee name, code, role, and punch time.
+  Widget _buildInstantPunchCard(AttendanceRecord record) {
+    final attendanceService = _attendanceService;
+    final user = attendanceService.users
+        .where((u) => u.id == record.employeeId)
+        .firstOrNull;
+
+    final Uint8List? avatarBytes = user?.avatarBytes;
+    final Uint8List? punchBytes = record.punchImageBytes ?? avatarBytes;
+    final isLate = record.status == 'LATE';
+    final Color statusColor = isLate ? AppColors.amberWarning : AppColors.emeraldGreen;
+    final timeStr = DateFormat('hh:mm:ss a').format(record.timestamp);
+    final matchPercent = (record.confidenceScore * 100).toStringAsFixed(1);
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF162544),
+            Color(0xFF0F1A30),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppColors.emeraldGreen,
+          width: 1.8,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.emeraldGreen.withValues(alpha: 0.25),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Freshly captured live punch photo avatar (Nested structure to avoid border cut-off)
+          Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.bottomCenter,
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0A0E1A),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.emeraldGreen, width: 2.0),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.emeraldGreen.withValues(alpha: 0.35),
+                      blurRadius: 10,
+                    ),
+                  ],
+                ),
+                padding: const EdgeInsets.all(2.5),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: punchBytes != null
+                      ? Image.memory(
+                          punchBytes,
+                          fit: BoxFit.cover,
+                          gaplessPlayback: true,
+                          key: ValueKey('kiosk_punch_${record.id}'),
+                        )
+                      : Container(
+                          color: const Color(0xFF141E30),
+                          child: Center(
+                            child: Text(
+                              record.employeeName.isNotEmpty
+                                  ? record.employeeName.substring(0, 1).toUpperCase()
+                                  : 'U',
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.emeraldGreen,
+                              ),
+                            ),
+                          ),
+                        ),
+                ),
+              ),
+              Positioned(
+                bottom: -5,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: AppColors.emeraldGreen,
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: const Text(
+                    'LIVE SNAPSHOT',
+                    style: TextStyle(
+                      fontSize: 7.5,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.black,
+                      letterSpacing: 0.4,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.emeraldGreen.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppColors.emeraldGreen.withValues(alpha: 0.4)),
+                      ),
+                      child: const Text(
+                        'VERIFIED PUNCH',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.emeraldGreen,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        record.status,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: statusColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  record.employeeName,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                    letterSpacing: -0.2,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceCardLight,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        record.employeeCode,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.cyanAccent,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      timeStr,
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '$matchPercent% Match',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.emeraldGreen,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Camera Viewport with Biometric Oval HUD and Laser Overlay
+  Widget _buildCameraViewport({required bool isCamReady, double customWidth = 240, double customHeight = 310}) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Camera Preview
+        if (isCamReady)
+          SizedBox.expand(
+            child: FittedBox(
+              fit: BoxFit.cover,
+              clipBehavior: Clip.hardEdge,
+              child: SizedBox(
+                width: _cameraController!.value.previewSize?.height ?? 720,
+                height: _cameraController!.value.previewSize?.width ?? 1280,
+                child: CameraPreview(_cameraController!),
+              ),
+            ),
+          )
+        else
+          const Center(
+            child: CircularProgressIndicator(color: AppColors.cyanAccent),
+          ),
+
+        // Biometric Oval HUD with Laser
+        if (isCamReady)
+          Positioned.fill(
+            child: AnimatedBuilder(
+              animation: _scannerAnimation,
+              builder: (context, _) {
+                final Color ovalColor = _isVerifying || _lastPunchResult != null
+                    ? AppColors.emeraldGreen
+                    : (_blinkDetected
+                        ? AppColors.emeraldGreen
+                        : (_statusColor == AppColors.amberWarning
+                            ? AppColors.amberWarning
+                            : AppColors.cyanAccent));
+
+                return CustomPaint(
+                  painter: BiometricOvalPainter(
+                    borderColor: ovalColor,
+                    isVerified: _blinkDetected || _isVerifying,
+                    pulseValue: _scannerAnimation.value,
+                    laserProgress: _isVerifying ? 0.5 : _scannerAnimation.value,
+                    customWidth: customWidth,
+                    customHeight: customHeight,
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
+  /// Top Floating Glassmorphic Header Bar (respecting top inset)
+  Widget _buildTopBar(double topInset) {
+    return Align(
+      alignment: Alignment.topCenter,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20, topInset + 12, 20, 12),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // Back / Exit Button
+            ClipOval(
+              child: Material(
+                color: Colors.black.withValues(alpha: 0.55),
+                child: InkWell(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.15),
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox.shrink(),
+
+            // Camera Switch Button
+            if (_cameras.length > 1)
+              ClipOval(
+                child: Material(
+                  color: Colors.black.withValues(alpha: 0.55),
+                  child: InkWell(
+                    onTap: _toggleCamera,
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.15),
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.flip_camera_ios_outlined,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            else
+              const SizedBox(width: 44),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Bottom Floating Status Pill (respecting bottom inset)
+  Widget _buildStatusPill(double bottomInset, AttendanceService attendanceService) {
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: Container(
+        margin: EdgeInsets.fromLTRB(20, 0, 20, bottomInset + 16),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFF131D31).withValues(alpha: 0.92),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: _statusColor.withValues(alpha: 0.65),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.6),
+              blurRadius: 24,
+              offset: const Offset(0, 4),
+            ),
+            BoxShadow(
+              color: _statusColor.withValues(alpha: 0.15),
+              blurRadius: 16,
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _statusColor,
+                boxShadow: [
+                  BoxShadow(
+                    color: _statusColor,
+                    blurRadius: 8,
+                    spreadRadius: 1,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _statusText,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: _statusColor,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Active Staff: ${attendanceService.totalStaffCount} enrolled',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 📟 Tablet Kiosk Mode Right Console Pane (40% Width)
+  Widget _buildTabletRightConsole(AttendanceService attendanceService, double topInset, double bottomInset) {
+    final todayRecords = attendanceService.todayRecords;
+    final onTimeCount = todayRecords.where((r) => r.status != 'LATE').length;
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFF0F1729),
+        border: Border(
+          left: BorderSide(color: AppColors.border, width: 1.5),
+        ),
+      ),
+      padding: EdgeInsets.fromLTRB(20, topInset + 12, 20, bottomInset + 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Office Name & Terminal Status Header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text(
+                    'AI ATTENDANCE KIOSK',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.cyanAccent,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'HQ Main Terminal • Active Sensor',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.emeraldGreen.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: AppColors.emeraldGreen.withValues(alpha: 0.4),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: AppColors.emeraldGreen,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    const Text(
+                      'ONLINE',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.emeraldGreen,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // Live Digital Clock Console Banner
+          _KioskLiveClock(),
+
+          const SizedBox(height: 14),
+
+          // Today's Check-in / On-Time Counters
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF141E30),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'TODAY CHECK-INS',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textMuted,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${attendanceService.todayCheckInCount}',
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.cyanAccent,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF141E30),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'ON-TIME PUNCTUAL',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textMuted,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '$onTimeCount',
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.emeraldGreen,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 18),
+
+          // Section Header: Instant Punch Feed
+          Row(
+            children: [
+              const Icon(Icons.flash_on_rounded, size: 15, color: AppColors.cyanAccent),
+              const SizedBox(width: 6),
+              const Text(
+                'LIVE PUNCH STREAM',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textMuted,
+                  letterSpacing: 1.1,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${todayRecords.length} Today',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 10),
+
+          // Active Instant Punch Card or Recent Stream
+          Expanded(
+            child: _lastPunchResult != null
+                ? Column(
+                    children: [
+                      _buildInstantPunchCard(_lastPunchResult!),
+                      const SizedBox(height: 12),
+                      Expanded(
+                        child: _buildRecentStreamList(todayRecords),
+                      ),
+                    ],
+                  )
+                : _buildRecentStreamList(todayRecords),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecentStreamList(List<AttendanceRecord> todayRecords) {
+    if (todayRecords.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.cyanAccent.withValues(alpha: 0.08),
+                border: Border.all(
+                  color: AppColors.cyanAccent.withValues(alpha: 0.25),
+                ),
+              ),
+              child: const Icon(
+                Icons.face_retouching_natural_rounded,
+                color: AppColors.cyanAccent,
+                size: 26,
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Awaiting Staff Check-in',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Step in front of the camera and blink naturally to log attendance.',
+              style: TextStyle(
+                fontSize: 11.5,
+                color: AppColors.textMuted,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
+    final reversed = todayRecords.reversed.toList();
+    return ListView.builder(
+      physics: const BouncingScrollPhysics(),
+      itemCount: reversed.length,
+      itemBuilder: (context, index) {
+        final record = reversed[index];
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: _buildInstantPunchCard(record),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final attendanceService = context.watch<AttendanceService>();
+    final attendanceService = _attendanceService;
     final bool isCamReady = !_isDisposed &&
         _isCameraInitialized &&
         _cameraController != null &&
         _cameraController!.value.isInitialized;
 
+    final topInset = MediaQuery.of(context).padding.top;
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+    final isTablet = context.isTablet;
+
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          // 1. Full-Screen Seamless Live Camera Viewport
-          if (isCamReady)
-            SizedBox.expand(
-              child: FittedBox(
-                fit: BoxFit.cover,
-                clipBehavior: Clip.hardEdge,
-                child: SizedBox(
-                  width: _cameraController!.value.previewSize?.height ?? 720,
-                  height: _cameraController!.value.previewSize?.width ?? 1280,
-                  child: CameraPreview(_cameraController!),
-                ),
-              ),
-            )
-          else
-            const Center(
-              child: CircularProgressIndicator(color: AppColors.cyanAccent),
-            ),
-
-          // 2. Full-Screen Spotlight Vignette with Biometric Oval HUD & Laser Scan
-          if (isCamReady)
-            Positioned.fill(
-              child: AnimatedBuilder(
-                animation: _scannerAnimation,
-                builder: (context, _) {
-                  final Color ovalColor = _isVerifying || _lastPunchResult != null
-                      ? AppColors.emeraldGreen
-                      : (_blinkDetected
-                          ? AppColors.emeraldGreen
-                          : (_statusColor == AppColors.amberWarning
-                              ? AppColors.amberWarning
-                              : AppColors.cyanAccent));
-
-                  return CustomPaint(
-                    painter: BiometricOvalPainter(
-                      borderColor: ovalColor,
-                      isVerified: _blinkDetected || _isVerifying,
-                      pulseValue: _scannerAnimation.value,
-                      laserProgress: _isVerifying ? 0.5 : _scannerAnimation.value,
-                      customWidth: 240,
-                      customHeight: 310,
-                    ),
-                  );
-                },
-              ),
-            ),
-
-          // 3. Top Floating Glassmorphic Header Bar
-          SafeArea(
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Back / Exit Button
-                    ClipOval(
-                      child: Material(
-                        color: Colors.black.withValues(alpha: 0.55),
-                        child: InkWell(
-                          onTap: () => Navigator.pop(context),
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.15),
-                              ),
-                            ),
-                            child: const Icon(
-                              Icons.arrow_back_ios_new_rounded,
-                              color: Colors.white,
-                              size: 18,
-                            ),
-                          ),
-                        ),
+      body: isTablet
+          ? Row(
+              children: [
+                // 📟 Left Pane (60% Width): Front camera stream with biometric oval HUD
+                Expanded(
+                  flex: 6,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _buildCameraViewport(
+                        isCamReady: isCamReady,
+                        customWidth: 280,
+                        customHeight: 360,
                       ),
-                    ),
-
-                    const SizedBox.shrink(),
-
-                    // Camera Switch Button
-                    if (_cameras.length > 1)
-                      ClipOval(
-                        child: Material(
-                          color: Colors.black.withValues(alpha: 0.55),
-                          child: InkWell(
-                            onTap: _toggleCamera,
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.15),
-                                ),
-                              ),
-                              child: const Icon(
-                                Icons.flip_camera_ios_outlined,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                            ),
-                          ),
-                        ),
-                      )
-                    else
-                      const SizedBox(width: 44),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // 4. Bottom Floating Minimalist Status Pill
-          SafeArea(
-            child: Align(
-              alignment: Alignment.bottomCenter,
-              child: Container(
-                margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF131D31).withValues(alpha: 0.90),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: _statusColor.withValues(alpha: 0.65),
-                    width: 1.5,
+                      _buildTopBar(topInset),
+                      _buildStatusPill(bottomInset, attendanceService),
+                    ],
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.6),
-                      blurRadius: 24,
-                      offset: const Offset(0, 4),
-                    ),
-                    BoxShadow(
-                      color: _statusColor.withValues(alpha: 0.15),
-                      blurRadius: 16,
-                    ),
-                  ],
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _statusColor,
-                        boxShadow: [
-                          BoxShadow(
-                            color: _statusColor,
-                            blurRadius: 8,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _statusText,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: _statusColor,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Active Staff: ${attendanceService.totalStaffCount} enrolled',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+
+                // 📟 Right Pane (40% Width): Permanent live kiosk console
+                Expanded(
+                  flex: 4,
+                  child: _buildTabletRightConsole(attendanceService, topInset, bottomInset),
+                ),
+              ],
+            )
+          : Stack(
+              fit: StackFit.expand,
+              children: [
+                // 📱 Mobile Mode (< 600px): Clean single-column centered layout
+                _buildCameraViewport(isCamReady: isCamReady),
+                _buildTopBar(topInset),
+                _buildStatusPill(bottomInset, attendanceService),
+              ],
+            ),
+    );
+  }
+}
+
+/// 🕒 Self-updating live digital clock widget for Tablet Kiosk console
+class _KioskLiveClock extends StatefulWidget {
+  @override
+  State<_KioskLiveClock> createState() => _KioskLiveClockState();
+}
+
+class _KioskLiveClockState extends State<_KioskLiveClock> {
+  late Timer _timer;
+  late DateTime _currentTime;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentTime = DateTime.now();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        setState(() => _currentTime = DateTime.now());
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final timeStr = DateFormat('hh:mm:ss a').format(_currentTime);
+    final dateStr = DateFormat('EEEE, dd MMMM yyyy').format(_currentTime);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF141E30),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.cyanAccent.withValues(alpha: 0.3),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.cyanAccent.withValues(alpha: 0.08),
+            blurRadius: 12,
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                timeStr,
+                style: const TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                  letterSpacing: 0.5,
                 ),
               ),
+              const SizedBox(height: 2),
+              Text(
+                dateStr,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.cyanAccent.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.schedule_rounded,
+              color: AppColors.cyanAccent,
+              size: 20,
             ),
           ),
         ],

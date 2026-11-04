@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -18,6 +17,14 @@ class AttendanceTile extends StatelessWidget {
     this.onTap,
   });
 
+  AttendanceService _resolveAttendanceService(BuildContext context) {
+    try {
+      return context.read<AttendanceService>();
+    } catch (_) {
+      return AttendanceService.instance;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final timeStr = DateFormat('hh:mm a').format(record.timestamp);
@@ -32,20 +39,14 @@ class AttendanceTile extends StatelessWidget {
     final dateDisplay = isToday ? 'Today' : DateFormat('dd MMM').format(record.timestamp);
 
     // Look up user avatar if available
-    final attendanceService = context.read<AttendanceService>();
+    final attendanceService = _resolveAttendanceService(context);
     final user = attendanceService.users
         .where((u) => u.id == record.employeeId)
         .firstOrNull;
-    final avatarBase64 = user?.avatarBase64;
 
-    Uint8List? avatarBytes;
-    try {
-      if (avatarBase64 != null && avatarBase64.isNotEmpty) {
-        avatarBytes = base64Decode(avatarBase64);
-      }
-    } catch (_) {
-      avatarBytes = null;
-    }
+    final Uint8List? avatarBytes = user?.avatarBytes;
+    final photoBytes = record.punchImageBytes ?? avatarBytes;
+    final bool isLiveSnapshot = record.punchImageBytes != null;
 
     final initial = record.employeeName.isNotEmpty
         ? record.employeeName.substring(0, 1).toUpperCase()
@@ -54,116 +55,88 @@ class AttendanceTile extends StatelessWidget {
     final Color statusColor = isLate ? AppColors.amberWarning : AppColors.emeraldGreen;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 11),
+      margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xFF162238),
-            const Color(0xFF0F1827).withValues(alpha: 0.95),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
+        color: AppColors.surfaceCard,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isLate
-              ? AppColors.amberWarning.withValues(alpha: 0.25)
-              : AppColors.cyanAccent.withValues(alpha: 0.16),
-          width: 1.1,
+          color: AppColors.border,
+          width: 1.0,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
-            blurRadius: 14,
-            offset: const Offset(0, 5),
-          ),
-          if (!isLate)
-            BoxShadow(
-              color: AppColors.cyanAccent.withValues(alpha: 0.04),
-              blurRadius: 12,
-              spreadRadius: 1,
-            ),
-        ],
+        boxShadow: AppColors.cardShadow,
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap ?? () => AttendanceDetailSheet.show(context, record),
-          borderRadius: BorderRadius.circular(20),
-          splashColor: statusColor.withValues(alpha: 0.1),
-          highlightColor: Colors.white.withValues(alpha: 0.03),
+          borderRadius: BorderRadius.circular(16),
+          splashColor: AppColors.primary.withValues(alpha: 0.08),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
               children: [
-                // Avatar with presence / status badge
+                // Avatar / Profile Photo (Live punch snapshot if available)
                 Stack(
                   alignment: Alignment.bottomRight,
                   children: [
                     Container(
-                      width: 48,
-                      height: 48,
+                      width: 46,
+                      height: 46,
                       decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          colors: [
-                            statusColor.withValues(alpha: 0.6),
-                            statusColor.withValues(alpha: 0.1),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
+                        color: AppColors.background,
+                        borderRadius: BorderRadius.circular(13),
+                        border: Border.all(
+                          color: isLiveSnapshot
+                              ? AppColors.emeraldGreen.withValues(alpha: 0.6)
+                              : AppColors.border,
+                          width: isLiveSnapshot ? 1.5 : 1.0,
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: statusColor.withValues(alpha: 0.2),
-                            blurRadius: 8,
-                          ),
-                        ],
                       ),
                       padding: const EdgeInsets.all(2.0),
-                      child: Container(
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF0E1726),
-                          shape: BoxShape.circle,
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: avatarBytes != null
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: photoBytes != null
                             ? Image.memory(
-                                avatarBytes,
+                                photoBytes,
+                                key: ValueKey('tile_avatar_${record.id}'),
                                 fit: BoxFit.cover,
                                 gaplessPlayback: true,
-                                cacheWidth: 96,
-                                cacheHeight: 96,
-                                errorBuilder: (ctx, err, stack) =>
-                                    _buildLetter(initial, statusColor),
                               )
-                            : _buildLetter(initial, statusColor),
+                            : Container(
+                                color: AppColors.primary.withValues(alpha: 0.12),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  initial,
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ),
                       ),
                     ),
-
-                    // Status Micro Badge
                     Container(
-                      width: 16,
-                      height: 16,
+                      width: 12,
+                      height: 12,
                       decoration: BoxDecoration(
                         color: statusColor,
                         shape: BoxShape.circle,
-                        border: Border.all(
-                          color: const Color(0xFF0F1827),
-                          width: 2,
-                        ),
+                        border: Border.all(color: AppColors.surfaceCard, width: 1.8),
                       ),
-                      child: Icon(
-                        isLate ? Icons.access_time_rounded : Icons.check_rounded,
-                        size: 9.5,
-                        color: Colors.white,
-                      ),
+                      child: isLiveSnapshot
+                          ? const Icon(
+                              Icons.camera_alt,
+                              size: 7,
+                              color: Colors.white,
+                            )
+                          : null,
                     ),
                   ],
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
 
-                // Employee Name, Code & Role
+                // Name & Role
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -173,61 +146,21 @@ class AttendanceTile extends StatelessWidget {
                           Flexible(
                             child: Text(
                               record.employeeName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                fontSize: 15.5,
+                                fontSize: 14.5,
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.textPrimary,
-                                letterSpacing: -0.2,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          // Status Tag
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: statusColor.withValues(alpha: 0.14),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                color: statusColor.withValues(alpha: 0.35),
-                                width: 0.8,
                               ),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  width: 4,
-                                  height: 4,
-                                  decoration: BoxDecoration(
-                                    color: statusColor,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  record.status,
-                                  style: TextStyle(
-                                    fontSize: 9.5,
-                                    fontWeight: FontWeight.w800,
-                                    color: statusColor,
-                                    letterSpacing: 0.4,
-                                  ),
-                                ),
-                              ],
-                            ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
+                          const SizedBox(width: 6),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                             decoration: BoxDecoration(
-                              color: AppColors.surfaceCardLight,
-                              borderRadius: BorderRadius.circular(5),
+                              color: AppColors.cyanAccent.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
                               record.employeeCode,
@@ -238,16 +171,40 @@ class AttendanceTile extends StatelessWidget {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 6),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
                           Flexible(
                             child: Text(
                               record.role,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textSecondary,
-                                fontWeight: FontWeight.w500,
-                              ),
+                              maxLines: 1,
                               overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            width: 3,
+                            height: 3,
+                            decoration: const BoxDecoration(
+                              color: AppColors.textMuted,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '$matchPercent% match',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: matchPercent >= 85
+                                  ? AppColors.emeraldGreen
+                                  : AppColors.amberWarning,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
@@ -256,71 +213,47 @@ class AttendanceTile extends StatelessWidget {
                   ),
                 ),
 
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
 
-                // Time, Date & Confidence
+                // Time & Status Pill (Clean 2-line right alignment)
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      timeStr,
+                      isToday ? timeStr : '$dateDisplay, $timeStr',
                       style: const TextStyle(
-                        fontSize: 14,
+                        fontSize: 12.5,
                         fontWeight: FontWeight.w700,
                         color: AppColors.textPrimary,
-                        letterSpacing: -0.3,
+                        letterSpacing: -0.2,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          dateDisplay,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.textMuted,
-                          ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: statusColor.withValues(alpha: 0.30),
+                          width: 0.8,
                         ),
-                        const SizedBox(width: 5),
-                        Container(
-                          width: 3,
-                          height: 3,
-                          decoration: const BoxDecoration(
-                            color: AppColors.textMuted,
-                            shape: BoxShape.circle,
-                          ),
+                      ),
+                      child: Text(
+                        isLate ? 'Late' : 'Verified',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: statusColor,
                         ),
-                        const SizedBox(width: 5),
-                        Text(
-                          '$matchPercent%',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: statusColor,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLetter(String letter, Color color) {
-    return Center(
-      child: Text(
-        letter,
-        style: TextStyle(
-          fontWeight: FontWeight.w800,
-          color: color,
-          fontSize: 17,
         ),
       ),
     );

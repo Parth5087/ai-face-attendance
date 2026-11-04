@@ -52,4 +52,21 @@ class AppColors {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
+
+  // Reusable Elevation Shadows for Cards
+  static List<BoxShadow> get cardShadow => [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.35),
+          blurRadius: 10,
+          offset: const Offset(0, 3),
+        ),
+      ];
+
+  static List<BoxShadow> get softShadow => [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.50),
+          blurRadius: 16,
+          offset: const Offset(0, 4),
+        ),
+      ];
 }
