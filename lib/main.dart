@@ -34,6 +34,26 @@ void main() async {
     ),
   );
 
+  // 3. Device Orientation & Device Classification:
+  // Dynamically inspect the device's physical screen width:
+  // - Mobile Phones (< 600dp): Lock strictly to Portrait
+  // - Tablet Kiosks (>= 600dp): Lock strictly to Landscape
+  final views = WidgetsBinding.instance.platformDispatcher.views;
+  if (views.isNotEmpty) {
+    final mediaQueryData = MediaQueryData.fromView(views.first);
+    final double screenWidth = mediaQueryData.size.shortestSide;
+    if (screenWidth < 600) {
+      await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    } else {
+      await SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    }
+  } else {
+    await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  }
+
   // 3. Initialize Core Services Architecture Singleton
   final storageService = StorageService();
   final mlService = MLService();

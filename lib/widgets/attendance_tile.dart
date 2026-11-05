@@ -10,11 +10,15 @@ import 'attendance_detail_sheet.dart';
 class AttendanceTile extends StatelessWidget {
   final AttendanceRecord record;
   final VoidCallback? onTap;
+  final bool enableTap;
+  final bool isSelected;
 
   const AttendanceTile({
     super.key,
     required this.record,
     this.onTap,
+    this.enableTap = true,
+    this.isSelected = false,
   });
 
   AttendanceService _resolveAttendanceService(BuildContext context) {
@@ -57,20 +61,23 @@ class AttendanceTile extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: AppColors.surfaceCard,
+        color: isSelected
+            ? AppColors.cyanAccent.withValues(alpha: 0.08)
+            : AppColors.surfaceCard,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: AppColors.border,
-          width: 1.0,
+          color: isSelected ? AppColors.cyanAccent : AppColors.border,
+          width: isSelected ? 1.6 : 1.0,
         ),
         boxShadow: AppColors.cardShadow,
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onTap ?? () => AttendanceDetailSheet.show(context, record),
+          onTap: enableTap ? (onTap ?? () => AttendanceDetailSheet.show(context, record)) : null,
           borderRadius: BorderRadius.circular(16),
-          splashColor: AppColors.primary.withValues(alpha: 0.08),
+          splashColor: enableTap ? AppColors.primary.withValues(alpha: 0.12) : Colors.transparent,
+          highlightColor: enableTap ? AppColors.primary.withValues(alpha: 0.06) : Colors.transparent,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
@@ -92,7 +99,7 @@ class AttendanceTile extends StatelessWidget {
                           width: isLiveSnapshot ? 1.5 : 1.0,
                         ),
                       ),
-                      padding: const EdgeInsets.all(2.0),
+                      padding: const EdgeInsets.all(2.5),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(10),
                         child: photoBytes != null
@@ -101,16 +108,18 @@ class AttendanceTile extends StatelessWidget {
                                 key: ValueKey('tile_avatar_${record.id}'),
                                 fit: BoxFit.cover,
                                 gaplessPlayback: true,
+                                filterQuality: FilterQuality.medium,
                               )
                             : Container(
-                                color: AppColors.primary.withValues(alpha: 0.12),
+                                color: AppColors.primary.withValues(alpha: 0.25),
                                 alignment: Alignment.center,
                                 child: Text(
                                   initial,
                                   style: const TextStyle(
+                                    fontFamily: AppFonts.bold,
                                     fontSize: 18,
                                     fontWeight: FontWeight.w700,
-                                    color: AppColors.primary,
+                                    color: AppColors.cyanAccent,
                                   ),
                                 ),
                               ),
@@ -136,19 +145,20 @@ class AttendanceTile extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
 
-                // Name & Role
+                // Name, Code Badge & Single-Line Role/Match Score (Fix RenderFlex overflows)
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          Flexible(
+                          Expanded(
                             child: Text(
                               record.employeeName,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
+                                fontFamily: AppFonts.bold,
                                 fontSize: 14.5,
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.textPrimary,
@@ -156,58 +166,38 @@ class AttendanceTile extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                            decoration: BoxDecoration(
-                              color: AppColors.cyanAccent.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              record.employeeCode,
-                              style: const TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.cyanAccent,
+                          Flexible(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: AppColors.cyanAccent.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                record.employeeCode,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontFamily: AppFonts.bold,
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.cyanAccent,
+                                ),
                               ),
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 3),
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              record.role,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 11.5,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
-                            width: 3,
-                            height: 3,
-                            decoration: const BoxDecoration(
-                              color: AppColors.textMuted,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '$matchPercent% match',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: matchPercent >= 85
-                                  ? AppColors.emeraldGreen
-                                  : AppColors.amberWarning,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
+                      Text(
+                        '${record.role} • $matchPercent% match',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: AppFonts.medium,
+                          fontSize: 11.5,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ],
                   ),
@@ -215,7 +205,7 @@ class AttendanceTile extends StatelessWidget {
 
                 const SizedBox(width: 8),
 
-                // Time & Status Pill (Clean 2-line right alignment)
+                // Symmetrical 2-Line Attendance Card Alignment
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   mainAxisSize: MainAxisSize.min,
@@ -223,6 +213,7 @@ class AttendanceTile extends StatelessWidget {
                     Text(
                       isToday ? timeStr : '$dateDisplay, $timeStr',
                       style: const TextStyle(
+                        fontFamily: AppFonts.bold,
                         fontSize: 12.5,
                         fontWeight: FontWeight.w700,
                         color: AppColors.textPrimary,
@@ -231,21 +222,32 @@ class AttendanceTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                       decoration: BoxDecoration(
-                        color: statusColor.withValues(alpha: 0.12),
+                        color: (record.checkType == 'OUT'
+                                ? const Color(0xFFEA580C)
+                                : statusColor)
+                            .withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: statusColor.withValues(alpha: 0.30),
+                          color: (record.checkType == 'OUT'
+                                  ? const Color(0xFFEA580C)
+                                  : statusColor)
+                              .withValues(alpha: 0.30),
                           width: 0.8,
                         ),
                       ),
                       child: Text(
-                        isLate ? 'Late' : 'Verified',
+                        record.checkType == 'OUT'
+                            ? 'OUT'
+                            : (isLate ? 'Late' : 'IN'),
                         style: TextStyle(
+                          fontFamily: AppFonts.bold,
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
-                          color: statusColor,
+                          color: record.checkType == 'OUT'
+                              ? const Color(0xFFEA580C)
+                              : statusColor,
                         ),
                       ),
                     ),

@@ -8,6 +8,7 @@ class ActionHeroCard extends StatelessWidget {
   final VoidCallback onTap;
   final bool isPrimary;
   final Widget? trailingBadge;
+  final String? badgeText;
 
   const ActionHeroCard({
     super.key,
@@ -17,10 +18,39 @@ class ActionHeroCard extends StatelessWidget {
     required this.onTap,
     this.isPrimary = false,
     this.trailingBadge,
+    this.badgeText,
   });
 
   @override
   Widget build(BuildContext context) {
+    Widget? effectiveBadge = trailingBadge;
+    if (effectiveBadge == null && badgeText != null) {
+      effectiveBadge = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+        decoration: BoxDecoration(
+          color: isPrimary
+              ? Colors.white.withValues(alpha: 0.22)
+              : AppColors.cyanAccent.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isPrimary
+                ? Colors.white.withValues(alpha: 0.4)
+                : AppColors.cyanAccent.withValues(alpha: 0.3),
+            width: 0.8,
+          ),
+        ),
+        child: Text(
+          badgeText!,
+          style: TextStyle(
+            fontFamily: AppFonts.bold,
+            fontSize: 9.5,
+            fontWeight: FontWeight.w800,
+            color: isPrimary ? Colors.white : AppColors.cyanAccent,
+            letterSpacing: 0.5,
+          ),
+        ),
+      );
+    }
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -91,6 +121,7 @@ class ActionHeroCard extends StatelessWidget {
                           child: Text(
                             title,
                             style: TextStyle(
+                              fontFamily: AppFonts.bold,
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
                               color: isPrimary ? Colors.white : AppColors.textPrimary,
@@ -98,9 +129,9 @@ class ActionHeroCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                        if (trailingBadge != null) ...[
+                        if (effectiveBadge != null) ...[
                           const SizedBox(width: 8),
-                          trailingBadge!,
+                          effectiveBadge,
                         ],
                       ],
                     ),
@@ -108,6 +139,7 @@ class ActionHeroCard extends StatelessWidget {
                     Text(
                       subtitle,
                       style: TextStyle(
+                        fontFamily: AppFonts.medium,
                         fontSize: 11.5,
                         color: isPrimary
                             ? Colors.white.withValues(alpha: 0.85)

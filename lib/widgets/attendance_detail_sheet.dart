@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 import '../core/app_colors.dart';
 import '../models/attendance_record.dart';
 import '../services/attendance_service.dart';
 
-class AttendanceDetailSheet extends StatelessWidget {
+class AttendanceDetailSheet extends StatefulWidget {
   final AttendanceRecord record;
 
   const AttendanceDetailSheet({super.key, required this.record});
@@ -22,24 +21,28 @@ class AttendanceDetailSheet extends StatelessWidget {
     );
   }
 
-  AttendanceService _resolveAttendanceService(BuildContext context) {
-    try {
-      return context.read<AttendanceService>();
-    } catch (_) {
-      return AttendanceService.instance;
-    }
+  @override
+  State<AttendanceDetailSheet> createState() => _AttendanceDetailSheetState();
+}
+
+class _AttendanceDetailSheetState extends State<AttendanceDetailSheet> {
+  Uint8List? _avatarBytes;
+  Uint8List? _punchBytes;
+
+  @override
+  void initState() {
+    super.initState();
+    // Decode avatar and punch bytes once in initState to avoid flicker during sheet animations
+    _punchBytes = widget.record.punchImageBytes;
+    final user = AttendanceService.instance.users
+        .where((u) => u.id == widget.record.employeeId)
+        .firstOrNull;
+    _avatarBytes = user?.avatarBytes;
   }
 
   @override
   Widget build(BuildContext context) {
-    final attendanceService = _resolveAttendanceService(context);
-    final user = attendanceService.users
-        .where((u) => u.id == record.employeeId)
-        .firstOrNull;
-
-    final Uint8List? avatarBytes = user?.avatarBytes;
-    final Uint8List? punchBytes = record.punchImageBytes;
-
+    final record = widget.record;
     final isLate = record.status == 'LATE';
     final matchPercent = (record.confidenceScore * 100).toStringAsFixed(1);
     final timeStr = DateFormat('hh:mm:ss a').format(record.timestamp);
@@ -102,7 +105,7 @@ class AttendanceDetailSheet extends StatelessWidget {
                           child: Container(
                             padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
-                              color: AppColors.surfaceCard,
+                              color: AppColors.surfaceCardLight,
                               shape: BoxShape.circle,
                               border: Border.all(color: AppColors.border),
                             ),
@@ -119,7 +122,7 @@ class AttendanceDetailSheet extends StatelessWidget {
 
                   const SizedBox(height: 14),
 
-                  // 2. Premium Employee Hero Card
+                  // 2. Employee Profile Header Card
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -150,22 +153,24 @@ class AttendanceDetailSheet extends StatelessWidget {
                               ),
                               padding: const EdgeInsets.all(2.5),
                               child: ClipOval(
-                                child: (punchBytes ?? avatarBytes) != null
+                                child: (_punchBytes ?? _avatarBytes) != null
                                     ? Image.memory(
-                                        (punchBytes ?? avatarBytes)!,
-                                        key: ValueKey('avatar_${record.id}'),
+                                        (_punchBytes ?? _avatarBytes)!,
+                                        key: ValueKey('sheet_avatar_${record.id}'),
                                         fit: BoxFit.cover,
                                         gaplessPlayback: true,
+                                        filterQuality: FilterQuality.high,
                                       )
                                     : Container(
-                                        color: AppColors.primary.withValues(alpha: 0.12),
+                                        color: AppColors.primary.withValues(alpha: 0.25),
                                         alignment: Alignment.center,
                                         child: Text(
                                           initial,
                                           style: const TextStyle(
+                                            fontFamily: AppFonts.bold,
                                             fontSize: 22,
                                             fontWeight: FontWeight.w700,
-                                            color: AppColors.primary,
+                                            color: AppColors.cyanAccent,
                                           ),
                                         ),
                                       ),
@@ -205,6 +210,7 @@ class AttendanceDetailSheet extends StatelessWidget {
                                     child: Text(
                                       record.status,
                                       style: TextStyle(
+                                        fontFamily: AppFonts.bold,
                                         fontSize: 10.5,
                                         fontWeight: FontWeight.w700,
                                         color: statusColor,
@@ -221,6 +227,7 @@ class AttendanceDetailSheet extends StatelessWidget {
                                     child: const Text(
                                       'BIOMETRIC PUNCH',
                                       style: TextStyle(
+                                        fontFamily: AppFonts.bold,
                                         fontSize: 9,
                                         fontWeight: FontWeight.w700,
                                         color: AppColors.cyanAccent,
@@ -233,6 +240,7 @@ class AttendanceDetailSheet extends StatelessWidget {
                               Text(
                                 record.employeeName,
                                 style: const TextStyle(
+                                  fontFamily: AppFonts.bold,
                                   fontSize: 18,
                                   fontWeight: FontWeight.w700,
                                   color: AppColors.textPrimary,
@@ -262,6 +270,7 @@ class AttendanceDetailSheet extends StatelessWidget {
                                         Text(
                                           record.employeeCode,
                                           style: const TextStyle(
+                                            fontFamily: AppFonts.medium,
                                             fontSize: 11.5,
                                             fontWeight: FontWeight.w600,
                                             color: AppColors.textSecondary,
@@ -289,6 +298,7 @@ class AttendanceDetailSheet extends StatelessWidget {
                                         Text(
                                           record.role,
                                           style: const TextStyle(
+                                            fontFamily: AppFonts.medium,
                                             fontSize: 11.5,
                                             fontWeight: FontWeight.w600,
                                             color: AppColors.textPrimary,
@@ -327,6 +337,7 @@ class AttendanceDetailSheet extends StatelessWidget {
                             const Text(
                               'BIOMETRIC AUDIT PROOF',
                               style: TextStyle(
+                                fontFamily: AppFonts.bold,
                                 fontSize: 10.5,
                                 letterSpacing: 0.8,
                                 fontWeight: FontWeight.w700,
@@ -343,6 +354,7 @@ class AttendanceDetailSheet extends StatelessWidget {
                               child: const Text(
                                 'LIVE CAPTURE',
                                 style: TextStyle(
+                                  fontFamily: AppFonts.bold,
                                   fontSize: 9,
                                   color: AppColors.emeraldGreen,
                                   fontWeight: FontWeight.w700,
@@ -365,32 +377,29 @@ class AttendanceDetailSheet extends StatelessWidget {
                                     color: AppColors.background,
                                     borderRadius: BorderRadius.circular(16),
                                     border: Border.all(color: AppColors.border, width: 1.5),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.3),
-                                        blurRadius: 6,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
+                                    boxShadow: AppColors.cardShadow,
                                   ),
                                   padding: const EdgeInsets.all(2.5),
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(12),
-                                    child: avatarBytes != null
+                                    child: _avatarBytes != null
                                         ? Image.memory(
-                                            avatarBytes,
+                                            _avatarBytes!,
+                                            key: ValueKey('sheet_audit_avatar_${record.id}'),
                                             fit: BoxFit.cover,
                                             gaplessPlayback: true,
+                                            filterQuality: FilterQuality.high,
                                           )
                                         : Container(
-                                            color: AppColors.primary.withValues(alpha: 0.12),
+                                            color: AppColors.primary.withValues(alpha: 0.25),
                                             alignment: Alignment.center,
                                             child: Text(
                                               initial,
                                               style: const TextStyle(
+                                                fontFamily: AppFonts.bold,
                                                 fontSize: 20,
                                                 fontWeight: FontWeight.w700,
-                                                color: AppColors.primary,
+                                                color: AppColors.cyanAccent,
                                               ),
                                             ),
                                           ),
@@ -400,6 +409,7 @@ class AttendanceDetailSheet extends StatelessWidget {
                                 const Text(
                                   'Enrolled Profile',
                                   style: TextStyle(
+                                    fontFamily: AppFonts.medium,
                                     fontSize: 10.5,
                                     color: AppColors.textSecondary,
                                   ),
@@ -426,6 +436,7 @@ class AttendanceDetailSheet extends StatelessWidget {
                                 Text(
                                   '$matchPercent% Match',
                                   style: const TextStyle(
+                                    fontFamily: AppFonts.bold,
                                     fontSize: 10,
                                     color: AppColors.emeraldGreen,
                                     fontWeight: FontWeight.w700,
@@ -455,17 +466,21 @@ class AttendanceDetailSheet extends StatelessWidget {
                                   padding: const EdgeInsets.all(2.5),
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(12),
-                                    child: punchBytes != null
+                                    child: _punchBytes != null
                                         ? Image.memory(
-                                            punchBytes,
+                                            _punchBytes!,
+                                            key: ValueKey('sheet_audit_punch_${record.id}'),
                                             fit: BoxFit.cover,
                                             gaplessPlayback: true,
+                                            filterQuality: FilterQuality.high,
                                           )
-                                        : (avatarBytes != null
+                                        : (_avatarBytes != null
                                             ? Image.memory(
-                                                avatarBytes,
+                                                _avatarBytes!,
+                                                key: ValueKey('sheet_audit_fallback_${record.id}'),
                                                 fit: BoxFit.cover,
                                                 gaplessPlayback: true,
+                                                filterQuality: FilterQuality.high,
                                               )
                                             : Container(
                                                 color: AppColors.emeraldGreen.withValues(alpha: 0.12),
@@ -492,6 +507,7 @@ class AttendanceDetailSheet extends StatelessWidget {
                                     const Text(
                                       'Punch Snapshot',
                                       style: TextStyle(
+                                        fontFamily: AppFonts.bold,
                                         fontSize: 10.5,
                                         color: AppColors.emeraldGreen,
                                         fontWeight: FontWeight.w700,
@@ -579,12 +595,17 @@ class AttendanceDetailSheet extends StatelessWidget {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
                             ),
+                            textStyle: const TextStyle(
+                              fontFamily: AppFonts.bold,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                           onPressed: () {
                             final code = record.employeeCode;
                             Clipboard.setData(ClipboardData(text: code));
                             HapticFeedback.lightImpact();
-                            Navigator.pop(context); // Close sheet FIRST so SnackBar is not covered
+                            // Close sheet FIRST so SnackBar is not covered
+                            Navigator.pop(context);
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Row(
@@ -612,13 +633,7 @@ class AttendanceDetailSheet extends StatelessWidget {
                           decoration: BoxDecoration(
                             gradient: AppColors.primaryGradient,
                             borderRadius: BorderRadius.circular(14),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.primary.withValues(alpha: 0.28),
-                                blurRadius: 10,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
+                            boxShadow: AppColors.cardShadow,
                           ),
                           child: Material(
                             color: Colors.transparent,
@@ -629,6 +644,7 @@ class AttendanceDetailSheet extends StatelessWidget {
                                 child: Text(
                                   'Done',
                                   style: TextStyle(
+                                    fontFamily: AppFonts.bold,
                                     fontSize: 15,
                                     fontWeight: FontWeight.w700,
                                     color: Colors.white,
@@ -691,6 +707,7 @@ class AttendanceDetailSheet extends StatelessWidget {
                   child: Text(
                     badge,
                     style: const TextStyle(
+                      fontFamily: AppFonts.bold,
                       fontSize: 9.5,
                       fontWeight: FontWeight.w700,
                       color: AppColors.emeraldGreen,
@@ -703,6 +720,7 @@ class AttendanceDetailSheet extends StatelessWidget {
           Text(
             label,
             style: const TextStyle(
+              fontFamily: AppFonts.bold,
               fontSize: 10,
               fontWeight: FontWeight.w700,
               color: AppColors.textSecondary,
@@ -715,6 +733,7 @@ class AttendanceDetailSheet extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
+              fontFamily: AppFonts.bold,
               fontSize: 15,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
@@ -726,6 +745,7 @@ class AttendanceDetailSheet extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
+              fontFamily: AppFonts.medium,
               fontSize: 11,
               color: subtitleColor,
             ),

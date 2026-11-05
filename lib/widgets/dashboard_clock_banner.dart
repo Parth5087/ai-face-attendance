@@ -4,7 +4,9 @@ import 'package:intl/intl.dart';
 import '../core/app_colors.dart';
 
 class DashboardClockBanner extends StatefulWidget {
-  const DashboardClockBanner({super.key});
+  final EdgeInsetsGeometry? margin;
+
+  const DashboardClockBanner({super.key, this.margin});
 
   @override
   State<DashboardClockBanner> createState() => _DashboardClockBannerState();
@@ -39,7 +41,7 @@ class _DashboardClockBannerState extends State<DashboardClockBanner> {
     final dateString = DateFormat('EEEE, MMM dd, yyyy').format(_currentTime);
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+      margin: widget.margin ?? const EdgeInsets.fromLTRB(20, 8, 20, 12),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
@@ -69,6 +71,7 @@ class _DashboardClockBannerState extends State<DashboardClockBanner> {
               Text(
                 timeString,
                 style: const TextStyle(
+                  fontFamily: AppFonts.bold,
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
                   color: Colors.white,
@@ -87,6 +90,7 @@ class _DashboardClockBannerState extends State<DashboardClockBanner> {
                   Text(
                     dateString,
                     style: const TextStyle(
+                      fontFamily: AppFonts.medium,
                       fontSize: 11.5,
                       fontWeight: FontWeight.w500,
                       color: AppColors.textSecondary,
@@ -127,6 +131,7 @@ class _DashboardClockBannerState extends State<DashboardClockBanner> {
                 const Text(
                   'ONLINE',
                   style: TextStyle(
+                    fontFamily: AppFonts.bold,
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
                     color: AppColors.emeraldGreen,

@@ -11,6 +11,7 @@ class StaffBloc extends Bloc<StaffEvent, StaffState> {
   StaffBloc({required this.attendanceService}) : super(StaffInitial()) {
     on<LoadStaffListEvent>(_onLoadStaffList);
     on<DeleteStaffEvent>(_onDeleteStaff);
+    on<UpdateStaffEvent>(_onUpdateStaff);
 
     _attendanceListener = () {
       add(LoadStaffListEvent());
@@ -23,6 +24,24 @@ class StaffBloc extends Bloc<StaffEvent, StaffState> {
     Emitter<StaffState> emit,
   ) {
     emit(StaffLoaded(staffList: attendanceService.users));
+  }
+
+  Future<void> _onUpdateStaff(
+    UpdateStaffEvent event,
+    Emitter<StaffState> emit,
+  ) async {
+    try {
+      await attendanceService.updateStaffInfo(
+        staffId: event.staffId,
+        name: event.name,
+        employeeCode: event.employeeCode,
+        role: event.role,
+        department: event.department,
+      );
+      emit(StaffLoaded(staffList: attendanceService.users));
+    } catch (e) {
+      emit(StaffError(message: 'Failed to update staff: $e'));
+    }
   }
 
   Future<void> _onDeleteStaff(

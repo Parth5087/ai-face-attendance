@@ -13,9 +13,6 @@ class AttendanceRecord {
   final String status; // 'VERIFIED', 'ON TIME', 'LATE'
   final String? punchImage; // Base64 JPEG string of the live face cropped during punch
 
-  Uint8List? _cachedPunchImageBytes;
-  bool _punchImageBytesDecoded = false;
-
   AttendanceRecord({
     required this.id,
     required this.employeeId,
@@ -29,19 +26,17 @@ class AttendanceRecord {
     this.punchImage,
   });
 
-  /// Memoized getter that decodes base64 only once and caches it in memory.
+  Uint8List? _cachedPunchBytes;
+
   Uint8List? get punchImageBytes {
-    if (!_punchImageBytesDecoded) {
-      _punchImageBytesDecoded = true;
-      if (punchImage != null && punchImage!.isNotEmpty) {
-        try {
-          _cachedPunchImageBytes = base64Decode(punchImage!);
-        } catch (_) {
-          _cachedPunchImageBytes = null;
-        }
-      }
+    if (_cachedPunchBytes != null) return _cachedPunchBytes;
+    if (punchImage == null || punchImage!.isEmpty) return null;
+    try {
+      _cachedPunchBytes = base64Decode(punchImage!);
+    } catch (_) {
+      _cachedPunchBytes = null;
     }
-    return _cachedPunchImageBytes;
+    return _cachedPunchBytes;
   }
 
   Map<String, dynamic> toMap() {

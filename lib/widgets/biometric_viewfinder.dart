@@ -205,6 +205,221 @@ class BiometricOvalPainter extends CustomPainter {
   }
 }
 
+/// 🛡️ Commercial Kiosk Rounded Tech-Box Viewfinder Painter
+/// Enterprise attendance kiosk viewfinder with rounded rectangle targeting frame,
+/// luminous corner L-brackets, soft spotlight vignette, and holographic laser scanning line.
+class BiometricTechBoxPainter extends CustomPainter {
+  final Color borderColor;
+  final bool isVerified;
+  final double pulseValue;
+  final double? laserProgress;
+  final double? customWidth;
+  final double? customHeight;
+  final double cornerRadius;
+  final double verticalOffset;
+
+  BiometricTechBoxPainter({
+    required this.borderColor,
+    required this.isVerified,
+    this.pulseValue = 0.0,
+    this.laserProgress,
+    this.customWidth,
+    this.customHeight,
+    this.cornerRadius = 28.0,
+    this.verticalOffset = 0.0,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, (size.height / 2) + verticalOffset);
+
+    final boxWidth = customWidth ?? min(size.width * 0.68, 440.0);
+    final boxHeight = customHeight ?? min(size.height * 0.78, 510.0);
+    final boxRect = Rect.fromCenter(
+      center: center,
+      width: boxWidth,
+      height: boxHeight,
+    );
+    final boxRRect = RRect.fromRectAndRadius(
+      boxRect,
+      Radius.circular(cornerRadius),
+    );
+
+    // 1. Soft Spotlight Vignette Mask (Gentle 40% dimming outside box for bright, open viewport)
+    final vignettePath = Path()
+      ..addRect(Rect.fromLTWH(0, 0, size.width, size.height))
+      ..addRRect(boxRRect);
+    vignettePath.fillType = PathFillType.evenOdd;
+
+    final vignettePaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.40)
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(vignettePath, vignettePaint);
+
+    // 2. Ambient Neon Glow
+    if (isVerified) {
+      final glowWidth = 8.0 + (pulseValue * 4.0);
+      final glowPaint = Paint()
+        ..color = borderColor.withValues(alpha: 0.35 + (pulseValue * 0.15))
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = glowWidth
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
+      canvas.drawRRect(boxRRect, glowPaint);
+    }
+
+    // 3. Crisp Rounded Frame Stroke
+    final strokePaint = Paint()
+      ..color = borderColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = isVerified ? 3.0 : 2.2;
+    canvas.drawRRect(boxRRect, strokePaint);
+
+    // 4. Subtle Outer Track Border
+    final trackRect = Rect.fromCenter(
+      center: center,
+      width: boxWidth + 16,
+      height: boxHeight + 16,
+    );
+    final trackRRect = RRect.fromRectAndRadius(
+      trackRect,
+      Radius.circular(cornerRadius + 4),
+    );
+    final trackPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.08)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+    canvas.drawRRect(trackRRect, trackPaint);
+
+    // 5. Four Cyber Targeting Corner Brackets [  ]
+    _drawCornerBrackets(
+      canvas,
+      center,
+      (boxWidth / 2) + 10,
+      (boxHeight / 2) + 10,
+      borderColor,
+    );
+
+    // 6. Holographic Laser Scanning Line (Strictly inside the box)
+    if (laserProgress != null) {
+      final clipPath = Path()..addRRect(boxRRect);
+      canvas.save();
+      canvas.clipPath(clipPath);
+
+      final laserY = boxRect.top + (boxRect.height * laserProgress!.clamp(0.0, 1.0));
+      final laserRect = Rect.fromLTWH(boxRect.left, laserY - 3, boxRect.width, 6);
+
+      // Glow behind laser
+      final laserGlowPaint = Paint()
+        ..shader = LinearGradient(
+          colors: [
+            Colors.transparent,
+            borderColor.withValues(alpha: 0.5),
+            borderColor,
+            borderColor.withValues(alpha: 0.5),
+            Colors.transparent,
+          ],
+        ).createShader(laserRect)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 6.0
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+      canvas.drawLine(Offset(boxRect.left, laserY), Offset(boxRect.right, laserY), laserGlowPaint);
+
+      // Sharp laser line
+      final laserLinePaint = Paint()
+        ..shader = LinearGradient(
+          colors: [
+            Colors.transparent,
+            Colors.white.withValues(alpha: 0.8),
+            Colors.white,
+            Colors.white.withValues(alpha: 0.8),
+            Colors.transparent,
+          ],
+        ).createShader(laserRect)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0;
+      canvas.drawLine(Offset(boxRect.left, laserY), Offset(boxRect.right, laserY), laserLinePaint);
+
+      canvas.restore();
+    }
+  }
+
+  void _drawCornerBrackets(
+    Canvas canvas,
+    Offset center,
+    double halfW,
+    double halfH,
+    Color color,
+  ) {
+    final bracketPaint = Paint()
+      ..color = color.withValues(alpha: 0.90)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.6
+      ..strokeCap = StrokeCap.round;
+
+    const arm = 22.0;
+
+    // Top-Left
+    canvas.drawLine(
+      Offset(center.dx - halfW, center.dy - halfH + arm),
+      Offset(center.dx - halfW, center.dy - halfH),
+      bracketPaint,
+    );
+    canvas.drawLine(
+      Offset(center.dx - halfW, center.dy - halfH),
+      Offset(center.dx - halfW + arm, center.dy - halfH),
+      bracketPaint,
+    );
+
+    // Top-Right
+    canvas.drawLine(
+      Offset(center.dx + halfW - arm, center.dy - halfH),
+      Offset(center.dx + halfW, center.dy - halfH),
+      bracketPaint,
+    );
+    canvas.drawLine(
+      Offset(center.dx + halfW, center.dy - halfH),
+      Offset(center.dx + halfW, center.dy - halfH + arm),
+      bracketPaint,
+    );
+
+    // Bottom-Left
+    canvas.drawLine(
+      Offset(center.dx - halfW, center.dy + halfH - arm),
+      Offset(center.dx - halfW, center.dy + halfH),
+      bracketPaint,
+    );
+    canvas.drawLine(
+      Offset(center.dx - halfW, center.dy + halfH),
+      Offset(center.dx - halfW + arm, center.dy + halfH),
+      bracketPaint,
+    );
+
+    // Bottom-Right
+    canvas.drawLine(
+      Offset(center.dx + halfW - arm, center.dy + halfH),
+      Offset(center.dx + halfW, center.dy + halfH),
+      bracketPaint,
+    );
+    canvas.drawLine(
+      Offset(center.dx + halfW, center.dy + halfH),
+      Offset(center.dx + halfW, center.dy + halfH - arm),
+      bracketPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(BiometricTechBoxPainter oldDelegate) {
+    return oldDelegate.borderColor != borderColor ||
+        oldDelegate.isVerified != isVerified ||
+        oldDelegate.pulseValue != pulseValue ||
+        oldDelegate.laserProgress != laserProgress ||
+        oldDelegate.customWidth != customWidth ||
+        oldDelegate.customHeight != customHeight ||
+        oldDelegate.cornerRadius != cornerRadius ||
+        oldDelegate.verticalOffset != verticalOffset;
+  }
+}
+
 /// 🌐 Futuristic Radar Concentric Rings for Biometric Review Card
 class BiometricRadarBackgroundPainter extends CustomPainter {
   @override

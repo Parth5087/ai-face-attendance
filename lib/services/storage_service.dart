@@ -48,6 +48,11 @@ class StorageService {
     await _prefs.setStringList(_usersKey, rawList);
   }
 
+  Future<void> saveUsers(List<UserModel> users) async {
+    final rawList = users.map((u) => u.toJson()).toList();
+    await _prefs.setStringList(_usersKey, rawList);
+  }
+
   Future<void> deleteUser(String id) async {
     final users = getUsers();
     users.removeWhere((u) => u.id == id);

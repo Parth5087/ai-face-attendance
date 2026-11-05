@@ -2,7 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../core/app_colors.dart';
-import '../screens/register_staff_screen.dart';
+import '../screens/registration/register_staff_screen.dart';
 
 class AttendanceUnrecognizedDialog extends StatefulWidget {
   final double? closestSimilarity;

@@ -11,6 +11,8 @@ import 'anti_spoofing_service.dart';
 enum PunchStatus {
   success,
   alreadyCheckedIn,
+  alreadyCheckedOut,
+  noCheckInFound,
   cooldownActive,
   noMatch,
   error,
@@ -33,6 +35,8 @@ class PunchResult {
 
   bool get isSuccess => status == PunchStatus.success;
   bool get isAlreadyCheckedIn => status == PunchStatus.alreadyCheckedIn;
+  bool get isAlreadyCheckedOut => status == PunchStatus.alreadyCheckedOut;
+  bool get isNoCheckInFound => status == PunchStatus.noCheckInFound;
   bool get isCooldown => status == PunchStatus.cooldownActive;
   bool get isNoMatch => status == PunchStatus.noMatch;
 }
@@ -53,6 +57,7 @@ class AttendanceService extends ChangeNotifier {
   final Map<String, DateTime> _recentPunchCooldown = {};
 
   bool _isReady = false;
+  bool _isKioskModeActive = false;
 
   AttendanceService({
     StorageService? storageService,
@@ -67,6 +72,13 @@ class AttendanceService extends ChangeNotifier {
   }
 
   bool get isReady => _isReady;
+  bool get isKioskModeActive => _isKioskModeActive;
+
+  Future<void> setKioskModeActive(bool active) async {
+    _isKioskModeActive = active;
+    notifyListeners();
+  }
+
   List<UserModel> get users => List.unmodifiable(_users);
   List<AttendanceRecord> get records => List.unmodifiable(_records);
 
@@ -154,9 +166,9 @@ class AttendanceService extends ChangeNotifier {
         }
       }
 
-      // Convert small thumbnail to base64 for avatar display
-      final thumb = img.copyResize(faceImage, width: 80, height: 80);
-      final thumbJpg = img.encodeJpg(thumb, quality: 75);
+      // Convert high-definition thumbnail to base64 for crisp avatar display on tablet & retina screens
+      final thumb = img.copyResize(faceImage, width: 256, height: 256);
+      final thumbJpg = img.encodeJpg(thumb, quality: 88);
       final avatarBase64 = base64Encode(thumbJpg);
 
       final newUser = UserModel(
@@ -190,6 +202,28 @@ class AttendanceService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Update staff member information
+  Future<void> updateStaffInfo({
+    required String staffId,
+    required String name,
+    required String employeeCode,
+    required String role,
+    required String department,
+  }) async {
+    final userIndex = _users.indexWhere((u) => u.id == staffId);
+    if (userIndex == -1) return;
+    final old = _users[userIndex];
+    final updated = old.copyWith(
+      name: name.trim(),
+      employeeCode: employeeCode.trim().toUpperCase(),
+      role: role.trim(),
+      department: department.trim(),
+    );
+    _users[userIndex] = updated;
+    await storageService.saveUsers(_users);
+    notifyListeners();
+  }
+
   /// Find today's check-in record for a specific employee
   AttendanceRecord? getTodayCheckIn(String employeeId) {
     final now = DateTime.now();
@@ -206,7 +240,32 @@ class AttendanceService extends ChangeNotifier {
     return firstTodayPunch;
   }
 
-  /// Verify and punch attendance from face scanner (Option 1: Single Daily Check-in)
+  /// Find today's check-out record for a specific employee
+  AttendanceRecord? getTodayCheckOut(String employeeId) {
+    final now = DateTime.now();
+    AttendanceRecord? lastCheckOut;
+    for (final r in _records) {
+      if (r.employeeId == employeeId &&
+          r.checkType == 'OUT' &&
+          r.timestamp.year == now.year &&
+          r.timestamp.month == now.month &&
+          r.timestamp.day == now.day) {
+        lastCheckOut = r;
+      }
+    }
+    return lastCheckOut;
+  }
+
+  /// Calculate work duration between check-in and check-out
+  String calculateWorkDuration(DateTime checkInTime, DateTime checkOutTime) {
+    final diff = checkOutTime.difference(checkInTime);
+    if (diff.isNegative) return '0h 00m';
+    final hours = diff.inHours;
+    final minutes = diff.inMinutes.remainder(60);
+    return '${hours}h ${minutes.toString().padLeft(2, '0')}m';
+  }
+
+  /// Verify and punch attendance from face scanner (Check-In or Check-Out)
   Future<PunchResult> punchAttendance({
     required img.Image faceImage,
     String checkType = 'IN',
@@ -260,14 +319,11 @@ class AttendanceService extends ChangeNotifier {
       );
     }
 
-    // 2. Option 1 Check: Has this employee ALREADY checked in TODAY?
+    // 2. Mode Check: CHECK-IN vs CHECK-OUT rules
     if (checkType == 'IN') {
       final existingTodayCheckIn = getTodayCheckIn(user.id);
       if (existingTodayCheckIn != null) {
-        // Update cooldown so dialog doesn't re-trigger immediately
         _recentPunchCooldown[user.id] = now;
-
-        // DO NOT save duplicate entry to database!
         return PunchResult(
           status: PunchStatus.alreadyCheckedIn,
           record: existingTodayCheckIn,
@@ -276,15 +332,43 @@ class AttendanceService extends ChangeNotifier {
           message: 'Already checked in today',
         );
       }
+    } else if (checkType == 'OUT') {
+      final todayCheckIn = getTodayCheckIn(user.id);
+      if (todayCheckIn == null) {
+        _recentPunchCooldown[user.id] = now;
+        return PunchResult(
+          status: PunchStatus.noCheckInFound,
+          user: user,
+          confidenceScore: result.similarity,
+          message: 'No Check-In found for today',
+        );
+      }
+
+      final existingTodayCheckOut = getTodayCheckOut(user.id);
+      if (existingTodayCheckOut != null) {
+        _recentPunchCooldown[user.id] = now;
+        return PunchResult(
+          status: PunchStatus.alreadyCheckedOut,
+          record: existingTodayCheckOut,
+          user: user,
+          confidenceScore: result.similarity,
+          message: 'Already checked out today',
+        );
+      }
     }
 
-    // 3. New Fresh Check-in for today!
+    // 3. New Fresh Check-in / Check-out for today!
     _recentPunchCooldown[user.id] = now;
 
     // Generate an optimized lightweight thumbnail of the live cropped face (150x150 JPEG, ~10-12 KB)
-    final thumb = img.copyResize(faceImage, width: 150, height: 150);
-    final thumbJpg = img.encodeJpg(thumb, quality: 75);
-    final punchImageBase64 = base64Encode(thumbJpg);
+    String? punchImageBase64;
+    try {
+      final thumb = img.copyResize(faceImage, width: 150, height: 150);
+      final thumbJpg = img.encodeJpg(thumb, quality: 75);
+      punchImageBase64 = base64Encode(thumbJpg);
+    } catch (e) {
+      debugPrint('Error generating punch thumbnail: $e');
+    }
 
     final record = AttendanceRecord(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -295,7 +379,7 @@ class AttendanceService extends ChangeNotifier {
       timestamp: now,
       checkType: checkType,
       confidenceScore: result.similarity,
-      status: _determineStatus(now),
+      status: checkType == 'OUT' ? 'CHECKED OUT' : _determineStatus(now),
       punchImage: punchImageBase64,
     );
 
@@ -308,7 +392,9 @@ class AttendanceService extends ChangeNotifier {
       record: record,
       user: user,
       confidenceScore: result.similarity,
-      message: 'Attendance recorded successfully',
+      message: checkType == 'OUT'
+          ? 'Check-out recorded successfully'
+          : 'Attendance recorded successfully',
     );
   }
 

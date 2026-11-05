@@ -27,16 +27,17 @@ class AppTheme {
       ),
       textTheme: darkTextTheme,
       primaryTextTheme: darkTextTheme,
-      appBarTheme: AppBarTheme(
+      appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: false,
-        titleTextStyle: GoogleFonts.poppins(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
+        titleTextStyle: TextStyle(
+          fontFamily: AppFonts.bold,
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
           color: AppColors.textPrimary,
         ),
-        iconTheme: const IconThemeData(color: AppColors.textPrimary),
+        iconTheme: IconThemeData(color: AppColors.textPrimary),
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: AppColors.surface,

@@ -12,9 +12,6 @@ class UserModel {
   final DateTime registeredAt;
   final String? avatarBase64;
 
-  Uint8List? _cachedAvatarBytes;
-  bool _avatarBytesDecoded = false;
-
   UserModel({
     required this.id,
     required this.name,
@@ -27,19 +24,42 @@ class UserModel {
     this.avatarBase64,
   });
 
+  Uint8List? _cachedAvatarBytes;
+
   /// Memoized getter that decodes base64 only once and caches it in memory.
   Uint8List? get avatarBytes {
-    if (!_avatarBytesDecoded) {
-      _avatarBytesDecoded = true;
-      if (avatarBase64 != null && avatarBase64!.isNotEmpty) {
-        try {
-          _cachedAvatarBytes = base64Decode(avatarBase64!);
-        } catch (_) {
-          _cachedAvatarBytes = null;
-        }
-      }
+    if (_cachedAvatarBytes != null) return _cachedAvatarBytes;
+    if (avatarBase64 != null && avatarBase64!.isNotEmpty) {
+      try {
+        _cachedAvatarBytes = base64Decode(avatarBase64!);
+        return _cachedAvatarBytes;
+      } catch (_) {}
     }
-    return _cachedAvatarBytes;
+    return null;
+  }
+
+  UserModel copyWith({
+    String? id,
+    String? name,
+    String? employeeCode,
+    String? role,
+    String? department,
+    List<double>? faceEmbedding,
+    List<List<double>>? multiAngleEmbeddings,
+    DateTime? registeredAt,
+    String? avatarBase64,
+  }) {
+    return UserModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      employeeCode: employeeCode ?? this.employeeCode,
+      role: role ?? this.role,
+      department: department ?? this.department,
+      faceEmbedding: faceEmbedding ?? this.faceEmbedding,
+      multiAngleEmbeddings: multiAngleEmbeddings ?? this.multiAngleEmbeddings,
+      registeredAt: registeredAt ?? this.registeredAt,
+      avatarBase64: avatarBase64 ?? this.avatarBase64,
+    );
   }
 
   Map<String, dynamic> toMap() {

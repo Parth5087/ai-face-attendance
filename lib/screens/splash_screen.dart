@@ -4,7 +4,7 @@ import '../bloc/splash/splash_bloc.dart';
 import '../bloc/splash/splash_event.dart';
 import '../bloc/splash/splash_state.dart';
 import '../core/app_colors.dart';
-import 'dashboard_screen.dart';
+import 'dashboard/dashboard_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});

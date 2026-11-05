@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+export 'app_fonts.dart';
 
 class AppColors {
   // Brand Backgrounds

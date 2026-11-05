@@ -52,6 +52,7 @@ class StatCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
+                    fontFamily: AppFonts.bold,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textSecondary,
@@ -78,6 +79,7 @@ class StatCard extends StatelessWidget {
           Text(
             value,
             style: const TextStyle(
+              fontFamily: AppFonts.bold,
               fontSize: 22,
               fontWeight: FontWeight.w800,
               color: Colors.white,
@@ -103,6 +105,7 @@ class StatCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
+                      fontFamily: AppFonts.medium,
                       fontSize: 10.5,
                       fontWeight: FontWeight.w500,
                       color: AppColors.textMuted.withValues(alpha: 0.85),
